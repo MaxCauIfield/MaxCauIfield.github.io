@@ -3,6 +3,7 @@
 <head>
 <!--添加JSZip的库文件-->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
 //定义一个函数，用于检索输入内容中与CL文件夹下文件名相同的文件，并打包
 function searchAndZip(){
@@ -10,114 +11,95 @@ function searchAndZip(){
   var input = document.getElementById("input").value;
   //创建一个空数组，用于存放匹配的文件名
   var matches = [];
-  //创建一个XMLHttpRequest对象，用于发送请求
-  var xhr = new XMLHttpRequest();
-  //设置请求的方法和地址，这里使用GET方法，地址为CL文件夹下的index.txt文件，该文件包含了CL文件夹下所有文件的列表，每个文件名占一行
-  xhr.open("GET", "CL/index.txt");
-  //设置请求的回调函数，当请求完成时执行
-  xhr.onload = function(){
+  //使用fetch方法发送请求，获取CL文件夹下的index.txt文件的内容，该文件包含了CL文件夹下所有文件的列表，每个文件名占一行
+  fetch("CL/index.txt")
+  .then(function(response){
     //判断请求是否成功，状态码为200表示成功
-    if(xhr.status == 200){
-      //获取响应的文本内容
-      var response = xhr.responseText;
-      //按换行符分割响应文本，得到一个数组，每个元素是一个文件名
-      var files = response.split("\n");
-      //遍历数组中的每个文件名
-      for(var i = 0; i < files.length; i++){
-        //去除文件名两端的空白字符
-        var file = files[i].trim();
-        //去除文件名中的后缀名，比如file1.txt变成file1
-        //使用slice()方法来获取不含后缀名的部分，而不是split()方法
-        var name = file.slice(0, file.lastIndexOf("."));
-        //判断输入内容是否包含该文件名（不含后缀），如果包含，则将该文件名（含后缀）添加到匹配数组中
-        if(input.includes(name)){
-          matches.push(file);
-        }
-      }
-      //输出匹配数组的长度和内容，用于检查是否有匹配的文件
-      console.log("matches.length: " + matches.length);
-      console.log("matches: " + matches);
-      //判断匹配数组是否为空，如果为空，则提示用户没有找到匹配的文件
-      if(matches.length == 0){
-        alert("没有找到匹配的文件");
-      }else{
-        //如果不为空，则创建一个JSZip对象，用于生成压缩包
-        var zip = new JSZip();
-        //创建一个空数组，用于存放所有的文件内容请求的Promise对象
-        var promises = [];
-        //遍历匹配数组中的每个文件名
-        for(var j = 0; j < matches.length; j++){
-          //创建一个新的XMLHttpRequest对象，用于获取文件内容
-          //使用let关键字来声明xhr2变量，使其具有块级作用域
-          let xhr2 = new XMLHttpRequest();
-          //设置请求的方法和地址，这里使用GET方法，地址为CL文件夹下的对应文件名
-          xhr2.open("GET", "CL/" + matches[j]);
-          //设置responseType属性为"blob"，表示期望返回的数据类型是二进制数据
-          xhr2.responseType = "blob";
-          //将该请求转换为一个Promise对象，并添加到promises数组中，同时传递一个参数matches[j]，用于保存文件名
-          promises.push(new Promise((resolve, reject) => {
-            //设置请求的回调函数，当请求完成时执行
-            xhr2.onload = () => {
-              //判断请求是否成功，状态码为200表示成功
-              if(xhr2.status == 200){
-                //获取响应的二进制内容
-                var content = xhr2.response;
-                //判断文件名是否有效，如果不为空或者undefined，则将该文件添加到压缩包中，文件名为传递过来的参数filename
-                if(matches[j]){
-                  zip.file(matches[j], content);
-                  //调用resolve函数，表示该Promise已经完成，并传递文件名作为参数
-                  //使用箭头函数的参数matches[j]，而不是zip.files[filename]，因为后者可能是undefined
-                  resolve(matches[j]);
-                }else{
-                  //如果文件名无效，则调用reject函数，表示该Promise发生了错误，并输出错误信息
-                  reject("Invalid filename: " + matches[j]);
-                }
-              }else{
-                //如果请求失败，则调用reject函数，表示该Promise发生了错误，并输出错误信息和状态码
-                reject("Error: " + xhr2.statusText + ", Status code: " + xhr2.status);
-              }
-            };
-            //发送请求
-            xhr2.send();
-          }));
-          //输出提示信息，表示正在发送第j个请求，并输出文件名
-          console.log("Sending request " + j + " for file " + matches[j]);
-        }
-        //使用Promise.all方法，等待所有的Promise都完成后执行then方法中的回调函数
-        Promise.all(promises).then(function(filenames){
-          //输出提示信息，表示所有的文件内容请求都完成了，并输出文件名数组
-          console.log("All file requests completed");
-          console.log("Filenames: " + filenames);
-          //生成压缩包，并将其转换为blob对象，并指定一些选项，比如type和compression等
-          zip.generateAsync({type:"blob", compression: "DEFLATE"}).then(function(blob){
-            //输出提示信息，表示压缩包已经生成
-            console.log("Zip file generated");
-            //创建一个a标签，用于下载压缩包
-            var a = document.createElement("a");
-            //设置a标签的href属性为blob对象的URL
-            a.href = URL.createObjectURL(blob);
-            //设置a标签的download属性为压缩包的文件名，这里使用matches.zip作为示例
-            a.download = "matches.zip";
-            //将a标签添加到文档中
-            document.body.appendChild(a);
-            //模拟点击a标签，触发下载操作
-            a.click();
-            //移除a标签
-            document.body.removeChild(a);
-          });
-        }).catch(function(error){
-          //如果有任何一个Promise发生了错误，则输出错误信息
-          console.log(error);
-        });
-      }
+    if(response.status == 200){
+      //返回响应的文本内容
+      return response.text();
     }else{
-      //如果请求失败，则提示用户发生了错误，并输出错误信息和状态码
-      alert("发生了错误");
-      console.log("Error: " + xhr.statusText + ", Status code: " + xhr.status);
+      //如果请求失败，则抛出一个错误，并输出错误信息和状态码
+      throw new Error("Error: " + response.statusText + ", Status code: " + response.status);
     }
-  };
-  //发送请求
-  xhr.send();
+  })
+  .then(function(text){
+    //获取响应的文本内容
+    var response = text;
+    //按换行符分割响应文本，得到一个数组，每个元素是一个文件名
+    var files = response.split("\n");
+    //遍历数组中的每个文件名
+    for(var i = 0; i < files.length; i++){
+      //去除文件名两端的空白字符
+      var file = files[i].trim();
+      //去除文件名中的后缀名，比如file1.txt变成file1
+      //使用slice()方法来获取不含后缀名的部分，而不是split()方法
+      var name = file.slice(0, file.lastIndexOf("."));
+      //判断输入内容是否包含该文件名（不含后缀），如果包含，则将该文件名（含后缀）添加到匹配数组中
+      if(input.includes(name)){
+        matches.push(file);
+      }
+    }
+    //输出匹配数组的长度和内容，用于检查是否有匹配的文件
+    console.log("matches.length: " + matches.length);
+    console.log("matches: " + matches);
+    //判断匹配数组是否为空，如果为空，则提示用户没有找到匹配的文件
+    if(matches.length == 0){
+      alert("没有找到匹配的文件");
+    }else{
+      //如果不为空，则创建一个JSZip对象，用于生成压缩包
+      var zip = new JSZip();
+      //创建一个空数组，用于存放所有的fetch请求返回的Promise对象
+      var promises = [];
+      //遍历匹配数组中的每个文件名
+      for(var j = 0; j < matches.length; j++){
+        //使用fetch方法发送请求，获取对应文件的arraybuffer对象，并添加到promises数组中
+        promises.push(fetch("CL/" + matches[j]).then(function(response){
+          //判断请求是否成功，状态码为200表示成功
+          if(response.status == 200){
+            //返回响应的arraybuffer对象
+            return response.arrayBuffer();
+          }else{
+            //如果请求失败，则抛出一个错误，并输出错误信息和状态码
+            throw new Error("Error: " + response.statusText + ", Status code: " + response.status);
+          }
+        }));
+        //输出提示信息，表示正在发送第j个请求，并输出文件名
+        console.log("Sending request " + j + " for file " + matches[j]);
+      }
+      //使用Promise.all方法，等待所有的fetch请求都完成后执行then方法中的回调函数
+      Promise.all(promises).then(function(buffers){
+        //输出提示信息，表示所有的fetch请求都完成了，并输出结果数组
+        console.log("All fetch requests completed");
+        console.log("Buffers: " + buffers);
+        //遍历结果数组中的每个arraybuffer对象
+        for(var k = 0; k < buffers.length; k++){
+          //判断文件名是否有效，如果不为空或者undefined，则将该文件添加到压缩包中，文件名为匹配数组中对应的文件名
+          if(matches[k]){
+            zip.file(matches[k], buffers[k]);
+          }else{
+            //如果文件名无效，则输出错误信息
+            console.log("Invalid filename: " + matches[k]);
+          }
+        }
+        //生成压缩包，并将其转换为blob对象，并指定一些选项，比如type和compression等
+        zip.generateAsync({type:"blob", compression: "DEFLATE"}).then(function(blob){
+          //输出提示信息，表示压缩包已经生成
+          console.log("Zip file generated");
+          //使用file-saver库中的saveAs函数，将blob对象保存为压缩包，并指定压缩包的文件名，这里使用matches.zip作为示例
+          saveAs(blob, "matches.zip");
+        });
+      }).catch(function(error){
+        //如果有任何一个fetch请求发生了错误，则输出错误信息
+        console.log(error);
+      });
+    }
+  })
+  .catch(function(error){
+    //如果获取index.txt文件发生了错误，则提示用户发生了错误，并输出错误信息
+    alert("发生了错误");
+    console.log(error);
+  });
 }
 </script>
 </head>
