@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<script>
+//定义一个函数，用于检索输入内容中与CL文件夹下文件名相同的文件，并打包
+function searchAndZip(){
+  //获取输入框的内容
+  var input = document.getElementById("input").value;
+  //创建一个空数组，用于存放匹配的文件名
+  var matches = [];
+  //创建一个XMLHttpRequest对象，用于发送请求
+  var xhr = new XMLHttpRequest();
+  //设置请求的方法和地址，这里使用GET方法，地址为CL文件夹下的index.txt文件，该文件包含了CL文件夹下所有文件的列表，每个文件名占一行
+  xhr.open("GET", "CL/index.txt");
+  //设置请求的回调函数，当请求完成时执行
+  xhr.onload = function(){
+    //判断请求是否成功，状态码为200表示成功
+    if(xhr.status == 200){
+      //获取响应的文本内容
+      var response = xhr.responseText;
+      //按换行符分割响应文本，得到一个数组，每个元素是一个文件名
+      var files = response.split("\n");
+      //遍历数组中的每个文件名
+      for(var i = 0; i < files.length; i++){
+        //去除文件名两端的空白字符
+        var file = files[i].trim();
+        //去除文件名中的后缀名，比如file1.txt变成file1
+        var name = file.split(".")[0];
+        //判断输入内容是否包含该文件名（不含后缀），如果包含，则将该文件名（含后缀）添加到匹配数组中
+        if(input.includes(name)){
+          matches.push(file);
+        }
+      }
+      //判断匹配数组是否为空，如果为空，则提示用户没有找到匹配的文件
+      if(matches.length == 0){
+        alert("没有找到匹配的文件");
+      }else{
+        //如果不为空，则创建一个JSZip对象，用于生成压缩包
+        var zip = new JSZip();
+        //遍历匹配数组中的每个文件名
+        for(var j = 0; j < matches.length; j++){
+          //创建一个新的XMLHttpRequest对象，用于获取文件内容
+          var xhr2 = new XMLHttpRequest();
+          //设置请求的方法和地址，这里使用GET方法，地址为CL文件夹下的对应文件名
+          xhr2.open("GET", "CL/" + matches[j]);
+          //设置请求的回调函数，当请求完成时执行
+          xhr2.onload = function(){
+            //判断请求是否成功，状态码为200表示成功
+            if(xhr2.status == 200){
+              //获取响应的文本内容
+              var content = xhr2.responseText;
+              //将该文件添加到压缩包中，文件名为匹配数组中对应的元素
+              zip.file(matches[j], content);
+            }
+          };
+          //发送请求
+          xhr2.send();
+        }
+        //生成压缩包，并将其转换为blob对象
+        zip.generateAsync({type:"blob"}).then(function(blob){
+          //创建一个a标签，用于下载压缩包
+          var a = document.createElement("a");
+          //设置a标签的href属性为blob对象的URL
+          a.href = URL.createObjectURL(blob);
+          //设置a标签的download属性为压缩包的文件名，这里使用matches.zip作为示例
+          a.download = "matches.zip";
+          //将a标签添加到文档中
+          document.body.appendChild(a);
+          //模拟点击a标签，触发下载操作
+          a.click();
+          //移除a标签
+          document.body.removeChild(a);
+        });
+      }
+    }else{
+      //如果请求失败，则提示用户发生了错误
+      alert("发生了错误");
+    }
+  };
+  //发送请求
+  xhr.send();
+}
+</script>
+</head>
+<body>
+<h1>请输入内容</h1>
+<!--创建一个输入框，id为input-->
+<input type="text" id="input">
+<!--创建一个按钮，点击后调用searchAndZip函数-->
+<button onclick="searchAndZip()">提交</button>
+</body>
+</html>
