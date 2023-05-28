@@ -11,7 +11,7 @@ function searchAndZip(){
   //创建一个XMLHttpRequest对象，用于发送请求
   var xhr = new XMLHttpRequest();
   //设置请求的方法和地址，这里使用GET方法，地址为CL文件夹下的index.txt文件，该文件包含了CL文件夹下所有文件的列表，每个文件名占一行
-  xhr.open("GET", "CL/index.txt");
+  xhr.open("GET", "index.txt");
   //设置请求的回调函数，当请求完成时执行
   xhr.onload = function(){
     //判断请求是否成功，状态码为200表示成功
