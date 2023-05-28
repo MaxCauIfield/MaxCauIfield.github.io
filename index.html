@@ -27,7 +27,8 @@ function searchAndZip(){
         //去除文件名两端的空白字符
         var file = files[i].trim();
         //去除文件名中的后缀名，比如file1.txt变成file1
-        var name = file.split(".")[0];
+        //使用slice()方法来获取不含后缀名的部分，而不是split()方法
+        var name = file.slice(0, file.lastIndexOf("."));
         //判断输入内容是否包含该文件名（不含后缀），如果包含，则将该文件名（含后缀）添加到匹配数组中
         if(input.includes(name)){
           matches.push(file);
@@ -61,10 +62,16 @@ function searchAndZip(){
               if(xhr2.status == 200){
                 //获取响应的二进制内容
                 var content = xhr2.response;
-                //将该文件添加到压缩包中，文件名为传递过来的参数filename
-                zip.file(matches[j], content);
-                //调用resolve函数，表示该Promise已经完成，并传递文件名作为参数
-                resolve(matches[j]);
+                //判断文件名是否有效，如果不为空或者undefined，则将该文件添加到压缩包中，文件名为传递过来的参数filename
+                if(matches[j]){
+                  zip.file(matches[j], content);
+                  //调用resolve函数，表示该Promise已经完成，并传递文件名作为参数
+                  //使用箭头函数的参数matches[j]，而不是zip.files[filename]，因为后者可能是undefined
+                  resolve(matches[j]);
+                }else{
+                  //如果文件名无效，则调用reject函数，表示该Promise发生了错误，并输出错误信息
+                  reject("Invalid filename: " + matches[j]);
+                }
               }else{
                 //如果请求失败，则调用reject函数，表示该Promise发生了错误，并输出错误信息和状态码
                 reject("Error: " + xhr2.statusText + ", Status code: " + xhr2.status);
@@ -81,8 +88,8 @@ function searchAndZip(){
           //输出提示信息，表示所有的文件内容请求都完成了，并输出文件名数组
           console.log("All file requests completed");
           console.log("Filenames: " + filenames);
-          //生成压缩包，并将其转换为blob对象
-          zip.generateAsync({type:"blob"}).then(function(blob){
+          //生成压缩包，并将其转换为blob对象，并指定一些选项，比如type和compression等
+          zip.generateAsync({type:"blob", compression: "DEFLATE"}).then(function(blob){
             //输出提示信息，表示压缩包已经生成
             console.log("Zip file generated");
             //创建一个a标签，用于下载压缩包
